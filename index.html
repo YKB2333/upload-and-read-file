@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <script src="./xlsx.mjs"></script>
+
+</head>
+
+<body>
+  <input id="iptFile" type="file">
+</body>
+<script>
+  // 把文件以二进制的方式读出来
+  let analyseExcelToByte = (file) => {
+    return new Promise(resolve => {
+      let reader = new FileReader();
+      reader.readAsBinaryString(file);
+      reader.onload = ev => {
+        resolve(ev.target.result);
+      }
+    })
+  }
+
+  // 转换得对应字段表：****这里需要根据自己的需要修改，一般是根据excel中的表头进行设置
+  let revertChart = {
+    name: {
+      text: "设备UID",
+      type: "string"
+    },
+    phone: {
+      text: "经度",
+      type: "string",
+    },
+    age: {
+      text: "纬度",
+      type: "string",
+    }
+  }
+  // 把读取出来得数据变为组后可以传递给服务器的数据（姓名：name、联系电话：phone、年纪：age、籍贯：local）
+  let parseToServe = (outdata) => {
+    let arr = [];
+    outdata.forEach(item => {
+      let obj = {};
+      for (let key in revertChart) {
+        if (!revertChart.hasOwnProperty(key)) break;
+        let o = revertChart[key],
+          text = o.text,
+          type = o.type;
+        o = item[text] || "";
+        type === "string" ? (o = String(o)) : null;
+        type === "number" ? (o = Number(o)) : null;
+        obj[key] = o
+      }
+      arr.push(obj)
+    })
+    return arr
+  }
+
+  // 前端文件导入解析成传递给服务器的数据
+  let resolveFile = async (file) => {
+    let data = await analyseExcelToByte(file);
+    console.log('analyseExcelToByte', data);
+    // 将文件以二进制读出
+    return new Promise(resolve => {
+      let workbook = XLSX.read(data, {
+        type: "binary"
+      })
+      // 将文件中的第一个sheet以json的方式读出outdata
+      let worksheets = workbook.Sheets[workbook.SheetNames[0]];
+      let outdata = XLSX.utils.sheet_to_json(worksheets)
+      let serveData = parseToServe(outdata)
+      console.log(outdata,serveData);
+      resolve(serveData)
+    })
+  }
+  iptFile.addEventListener('change', function (e) {
+    // 通过控制台打印
+    console.log(e.target.files);
+    fn(e.target.files[0])
+  })
+  async function fn(file) {
+    console.log("上传前", file);
+    let data = await resolveFile(file)
+    console.log("改造后", JSON.stringify(data));
+    return false
+
+  }
+</script>
+
+</html>
